@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+
+{% block main %}
+
+    <form>
+        <div class="d-flex justify-content-center" id="input">
+            <div class="mb-3 col-5">
+                <input class="form-control" list="ingredients" name="ingredients" placeholder="Ingredient" />
+                <datalist id="ingredients">
+                    {% for ingredient in ingredients %}
+                        <option value="{{ ingredient }}">{{ ingredient }}</option>
+                    {% endfor %}
+                </datalist>
+            </div>
+        </div>
+        <div id="extra-inputs"></div>
+        <div class="mb-3">
+            <button class="btn btn-primary" type="button" onclick="clone()">Add</button>
+            <button class="btn btn-primary" id="search" type="button">Search</button>
+        </div>
+    </form>
+
+    <div class="row row-cols-1 row-cols-md-2 g-4" id="recipes"></div>
+
+{% endblock %}
+
+{% block scripts %}
+
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+
+{% endblock %}

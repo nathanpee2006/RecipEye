@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+
+{% block main %}
+
+    <form action="/reset" method="post">
+        <div class="d-flex justify-content-center">
+            <div class="mb-3 col-5">
+                <input class="form-control" autocomplete="off" autofocus name="username" placeholder="Username" type="text">
+            </div>
+        </div>
+        <div class="d-flex justify-content-center">
+            <div class="mb-3 col-5">
+                <input class="form-control" autocomplete="off" name="password" placeholder="Password" type="password">
+            </div>
+        </div>
+        <div class="d-flex justify-content-center">
+            <div class="mb-3 col-5">
+                <input class="form-control" autocomplete="off" name="confirmation" placeholder="Confirm Password" type="password">
+            </div>
+        </div>
+        <button class="btn btn-primary" type="submit">Reset</button>
+    </form>
+
+{% endblock %}
