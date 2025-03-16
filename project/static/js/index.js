@@ -1,246 +1,190 @@
-let API_KEY = null;
-
-const getAPI_KEY = fetch("/api-key")
-    .then((response) => response.json())
-    .then((key) => {
-        return key;
-    });
-
-const initAPI_KEY = async () => {
-    API_KEY = await getAPI_KEY;
-};
-
-initAPI_KEY();
-
 let inputCounter = 1;
-
-function clone() {
+function cloneInputField() {
     // Create a clone of input field
-    const node = document.getElementById("input");
+    const node = document.getElementById("ingredient0");
     const clone = node.cloneNode(true);
 
     // Clear values of created input field
     clone.querySelectorAll("input").forEach(clear);
-
     function clear(input) {
         input.value = "";
     }
 
     // Increment id of new input field
-    clone.id = "input" + inputCounter;
+    clone.id = "ingredient" + inputCounter;
 
     // Append to div
-    document.getElementById("extra-inputs").appendChild(clone);
+    document.getElementById("input").appendChild(clone);
 
-    // Create a delete button
-    const button = document.createElement("button");
-    button.className = "btn btn-secondary";
-    button.type = "button";
-    button.onclick = function() {
+    let currentNumberOfIngredients = document.querySelectorAll("input").length;
+
+    // Create a delete button to remove an ingredient
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "btn btn-secondary";
+    deleteButton.type = "button";
+    deleteButton.textContent = "X";
+    deleteButton.addEventListener('click', () => {
         document.getElementById(clone.id).remove();
-    };
-    button.textContent = "X";
+        if (currentNumberOfIngredients < requiredNumberOfIngredients) {
+            hideSearchButton();
+        }
+    });
 
-    // Append to created input field
-    document.getElementById(clone.id).appendChild(button);
-
+    // Append delete button to created input field
+    document.getElementById(clone.id).appendChild(deleteButton);
     inputCounter += 1;
+
+    
+    const requiredNumberOfIngredients = 3;
+    if (currentNumberOfIngredients > requiredNumberOfIngredients && !document.getElementById("search")) {
+        showSearchButton();
+    }
 }
 
-const button = document.getElementById("search");
-button.addEventListener("click", async function() {
-    // Clear page when refreshed
-    document.getElementById("recipes").replaceChildren();
 
-    let recipeByIngredientsURL =
-        "https://api.spoonacular.com/recipes/findByIngredients?apiKey=" +
-        API_KEY +
-        "&ingredients=";
+function showSearchButton() {
+    const searchButton = document.createElement('button'); 
+    searchButton.className = "btn btn-primary";
+    searchButton.id = "search";
+    searchButton.type = "button";
+    searchButton.textContent = "Search";
+    document.getElementById('add').insertAdjacentElement('afterend', searchButton);
+    searchButton.addEventListener('click', getRecipes);
+}
 
-    let inputs = document.querySelectorAll("input"); // Is a request counted if nodeList is empty? If so, end function.
-    for (let i = 0; i < inputs.length; i++) {
-        let ingredient = inputs[i].value;
 
-        // Ignore empty fields
-        if (ingredient === "") {
-            continue;
-        }
+function hideSearchButton() {
+    const searchButton = document.getElementById("search");
+    if (searchButton) {
+        searchButton.remove();
+    } 
+}
 
-        // Ensure inputs have no whitespace in between
-        if (ingredient.includes(" ")) {
-            ingredient = ingredient.replace(/ /g, "+");
-        }
 
-        // One ingredient
-        if (inputs[i] === inputs[0]) {
-            recipeByIngredientsURL += ingredient;
-        }
-
-        // Multiple ingredients
-        else {
-            recipeByIngredientsURL += ",+" + ingredient;
-        }
-    }
-
-    // More filter options: Include complex searches (such as cuisine type, summary and instruction of recipes)
-    recipeByIngredientsURL += "&ranking=1";
-
-    let recipeExtraInfoURL =
-        "https://api.spoonacular.com/recipes/informationBulk?apiKey=" +
-        API_KEY +
-        "&ids=";
-    let recipeIds = [];
-
-    let recipes = null;
-
+async function getRecipes() {
     try {
-        const response = await fetch(recipeByIngredientsURL);
+        const ingredients = document.querySelectorAll("input");
+        const ingredientNames = [];
+        ingredients.forEach(ingredient => {
+            ingredientNames.push(ingredient.value);
+        });        
+
+        const response = await fetch('/recipes?ingredients=' + ingredientNames.join(','));
         if (!response.ok) {
             throw new Error(`Response status: ${response.status}`);
         }
-        const data = await response.json();
+        const json = await response.json();
+        console.log(json);
 
-        recipes = data;
+        displayRecipes(json);
 
-        // Store ids in recipeIds
-        data.forEach((recipe) => {
-            recipeIds.push(recipe["id"]);
-        });
-
-        // Append ids to recipeExtraInfoURL
-        for (let j = 0; j < recipeIds.length; j++) {
-            recipeExtraInfoURL += recipeIds[j] + ",";
-        }
     } catch (error) {
         console.error(error.message);
     }
+}
 
-    try {
-        const response = await fetch(recipeExtraInfoURL);
-        if (!response.ok) {
-            throw new Error(`Response status: ${response.status}`);
-        }
-        const data = await response.json();
 
-        for (let k = 0; k < recipes.length; k++) {
-            Object.assign(recipes[k], data[k]);
-        }
-    } catch (error) {
-        console.error(error.message);
-    }
+function displayRecipes(recipes) {
+    const recipesContainer = document.getElementById("recipes");
+    recipesContainer.innerHTML = "";
 
-    let modalCounter = 0;
-    let bookmarkButtonCounter = 0;
+    const recipeCardsHTML = recipes.map((recipe, index) => `
+        <div class="col">
+            <div class="card">
+                <img src="${recipe.image}" class="card-img-top" alt="${recipe.title}">
+                <div class="card-body">
+                    <h5 class="card-title">${recipe.title}</h5>
+                    <p class="card-text">Preparation Time: ${recipe.readyInMinutes} mins. | Serving size: ${recipe.servings}</p>
+                    <button type="button" class="btn btn-primary" id="moreInfoButton${index}" data-bs-toggle="modal" data-bs-target="#recipeModal">
+                        More Info 
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
 
-    recipes.forEach((recipe) => {
-        let used = "";
-        recipe["usedIngredients"].forEach((ingredient) => {
-            used += `<li class="list-group-item text-primary">${ingredient["originalName"]}</li>`;
+    recipesContainer.innerHTML = recipeCardsHTML;
+
+    recipes.forEach((recipe, index) => {
+        const moreInfoButton = document.getElementById(`moreInfoButton${index}`);
+        moreInfoButton.addEventListener('click', () => {
+            displayRecipeModal(recipe);
         });
+    })
+}
 
-        let missed = "";
-        recipe["missedIngredients"].forEach((ingredient) => {
-            missed += `<li class="list-group-item text-secondary">${ingredient["originalName"]}</li>`;
-        });
 
-        modalCounter += 1;
-        bookmarkButtonCounter += 1;
+function displayRecipeModal(recipe) {
+    
+    const recipeModalTitle = document.getElementById("recipeModalLabel");
+    const recipeModalBody = document.getElementById("recipeModalBody");
 
-        let recipeCard = `
-  <div class="col">
-      <div class="card">
-          <img src="${recipe["image"]}" class="card-img-top" alt="...">
-          <div class="card-body">
-              <h5 class="card-title">${recipe["title"]}</h5>
-              <h6 class="card-subtitle mb-2 text-body-secondary">${recipe["dishTypes"].join(", ")}</h6>
-              <p>Serving Size: ${recipe["servings"]}</p>
-              <p>Preparation Time (in minutes): ${recipe["readyInMinutes"]}</p>
-              <ul class="list-group list-group-flush">${used}</ul>
-              <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#${
-                "modal" + modalCounter
-              }">More Info</button>
+    recipeModalTitle.textContent = "";
+    recipeModalBody.innerHTML = "";
 
-              <div class="modal fade" id="${
-                "modal" + modalCounter
-              }" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-                  <div class="modal-dialog">
-                      <div class="modal-content">
-                          <div class="modal-header">
-                              <h1 class="modal-title fs-5" id="exampleModalLabel">More Info</h1>
-                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                          </div>
-                          <div class="modal-body">
-                              <p>Likes: ${recipe["likes"]}</p>
-                              <p>Health Score: ${recipe["healthScore"]}</p>
-                              <p>Diet Type: ${recipe["diets"].join(
-                                ", "
-                              )}</p>
-                              <ul class="list-group list-group-flush">${missed}</ul>
-                              <a href="${
-                                recipe["sourceUrl"]
-                              }" target="_blank">Link to Recipe</a>
-                          </div>
-                          <div class="modal-footer">
-                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                              <button type="button" class="btn btn-primary" id="${"bookmark" + bookmarkButtonCounter}">Bookmark</button>
-                          </div>
-                      </div>
-                  </div>
-              </div>
+    const recipeModalBodyContent = `
+        <h3>Summary</h3>
+        <p>${recipe.summary}</p>
 
-          </div>
-      </div>
-  </div>
-`;
-        document.getElementById("recipes").insertAdjacentHTML("beforeend", recipeCard);
+        <h3>Ingredients</h3>
+        <ul>
+            ${recipe.usedIngredients.map(ingredient => `<li class="text-primary">${ingredient.original}</li>`).join('')}
+        </ul>
 
-        let bookmarkId = "bookmark" + bookmarkButtonCounter;
-        let bookmarkButton = document.getElementById(bookmarkId);
+        <h3>Missed Ingredients</h3>
+        <ul>
+            ${recipe.missedIngredients.map(ingredient => `<li class="text-secondary">${ingredient.original}</li>`).join('')}
+        </ul>
 
-        bookmarkButton.addEventListener("click", () =>
-            addBookmark(recipe)
-        )
+        <h3>Instructions</h3>
+        <p>${recipe.instructions}</p>    
+
+        <a href="${recipe.sourceUrl}" target="_blank">Link to Recipe</a>
+    `;
+    
+    recipeModalTitle.textContent = recipe.title;
+    recipeModalBody.innerHTML = recipeModalBodyContent;
+
+    document.getElementById('bookmarkButton').textContent = "Bookmark";
+    document.getElementById('bookmarkButton').addEventListener('click', () => {
+        addBookmark(recipe);
     });
-});
+}
 
-async function addBookmark(data) {
+
+async function addBookmark(recipe) {
     try {
+        const recipeData = {
+            title: recipe.title,
+            image_url: recipe.image,
+            preparation_time: recipe.readyInMinutes,
+            serving_size: recipe.servings,
+            summary: recipe.summary,
+            instructions: recipe.instructions,
+            source_url: recipe.sourceUrl,
+            ingredients: [
+                ...recipe.usedIngredients.map(ing => ({
+                    name: ing.original,
+                    is_used: true
+                })),
+                ...recipe.missedIngredients.map(ing => ({
+                    name: ing.original,
+                    is_used: false
+                }))
+            ]
+        };
 
-        // console.log(data);
-        let usedIngredientsArr = [];
-        data["usedIngredients"].forEach(ingredient =>
-            usedIngredientsArr.push(ingredient['originalName'])
-        )
-
-        let missedIngredientsArr = [];
-        data["missedIngredients"].forEach(ingredient =>
-            missedIngredientsArr.push(ingredient['originalName'])
-        )
-
-        const response = await fetch("/api/bookmarks", {
+        const response = await fetch('/api/bookmarks', {
+            method: 'POST',
             headers: {
-                "Content-Type": "application/json",
+                'Content-Type': 'application/json',
             },
-            method: "POST",
-            body: JSON.stringify({
-                image: data["image"],
-                title: data["title"],
-                dishTypes: data["dishTypes"],
-                servings: data["servings"],
-                readyInMinutes: data["readyInMinutes"],
-                likes: data["likes"],
-                healthScore: data["healthScore"],
-                diets: data["diets"],
-                sourceUrl: data["sourceUrl"],
-                usedIngredients: usedIngredientsArr,
-                missedIngredients: missedIngredientsArr
-            }),
+            body: JSON.stringify(recipeData)
         });
 
         if (!response.ok) {
             throw new Error(`Response status: ${response.status}`);
         }
-
         return response.json();
     } catch (error) {
         console.error(error.message);

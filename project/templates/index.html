@@ -3,8 +3,8 @@
 {% block main %}
 
     <form>
-        <div class="d-flex justify-content-center" id="input">
-            <div class="mb-3 col-5">
+        <div class="ingredients" id="input">
+            <div class="input-group mb-3 w-50" id="ingredient0">
                 <input class="form-control" list="ingredients" name="ingredients" placeholder="Ingredient" />
                 <datalist id="ingredients">
                     {% for ingredient in ingredients %}
@@ -13,14 +13,33 @@
                 </datalist>
             </div>
         </div>
-        <div id="extra-inputs"></div>
-        <div class="mb-3">
-            <button class="btn btn-primary" type="button" onclick="clone()">Add</button>
-            <button class="btn btn-primary" id="search" type="button">Search</button>
+        
+        <div class="mb-3 text-center">
+            <button class="btn btn-primary" id="add" type="button" onclick="cloneInputField()">Add</button>
         </div>
     </form>
 
-    <div class="row row-cols-1 row-cols-md-2 g-4" id="recipes"></div>
+    <div class="d-flex justify-content-center">
+        <div class="row row-cols-1 row-cols-md-2 g-4" id="recipes">
+        </div>
+    </div>
+    
+    <div class="modal fade" id="recipeModal" tabindex="-1" aria-labelledby="recipeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="recipeModalLabel"></h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="recipeModalBody">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="bookmarkButton"></button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 {% endblock %}
 

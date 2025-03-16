@@ -2,7 +2,24 @@
 
 {% block main %}
 
-    <div class="row row-cols-1 row-cols-md-2 g-4" id="recipeBookmark"></div>
+    <div class="row row-cols-1 row-cols-md-2 g-4" id="recipeBookmarks"></div>
+
+    <div class="modal fade" id="recipeModal" tabindex="-1" aria-labelledby="recipeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="recipeModalLabel"></h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="recipeModalBody">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" id="bookmarkButton"></button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 {% endblock %}
 

@@ -1,19 +1,18 @@
 import bcrypt
 import json
-import os
+import requests
 import sqlite3
 
-from dotenv import load_dotenv
 from flask import Flask, flash, jsonify, redirect, render_template, request, session
 from flask_session import Session
 
 from helpers import ingredients, login_required
 
-# Load environment variables
-load_dotenv()
-
 # Initialisation
 app = Flask(__name__)
+
+# Load environment variables
+app.config.from_pyfile("settings.py")
 
 # Configuration
 app.config["SESSION_PERMANENT"] = False
@@ -32,8 +31,9 @@ def index():
     # Make a GET request to Spoonacular API
     # Gather ingredients from input fields and append to URL
     # Display recipe suggestions
+    ingredients_list = ingredients()
 
-    return render_template("index.html", ingredients=ingredients())
+    return render_template("index.html", ingredients=ingredients_list)
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -195,6 +195,33 @@ def reset():
         return render_template("reset.html")
 
 
+@app.route("/recipes", methods=["GET"])
+@login_required
+def get_recipes():
+    api_key = app.config["API_KEY"]
+    ingredients = request.args.get("ingredients")
+    recipes_by_ingredients_url = f"https://api.spoonacular.com/recipes/findByIngredients?apiKey={api_key}&ingredients={ingredients}&number=10&ranking=1&ignorePantry=true"
+    res1 = requests.get(recipes_by_ingredients_url)
+    recipes = res1.json()
+
+    recipe_ids = []
+    for recipe in recipes:
+        recipe_ids.append(recipe["id"])
+
+    recipes_information_url = f"https://api.spoonacular.com/recipes/informationBulk?apiKey={api_key}&ids={','.join(map(str, recipe_ids))}"
+    res2 = requests.get(recipes_information_url)
+    recipe_information = res2.json()
+
+    # Combine both responses
+    for recipe in recipes:
+        for info in recipe_information:
+            if recipe["id"] == info["id"]:
+                recipe.update(info)
+
+    # Return JSON data
+    return jsonify(recipes)
+
+
 @app.route("/bookmark")
 def bookmark():
     return render_template("bookmark.html")
@@ -208,12 +235,33 @@ def get_bookmarks():
     con.row_factory = sqlite3.Row
     cur = con.cursor()
 
-    rows = cur.execute("SELECT * FROM bookmarks WHERE user_id = ?", (session["user_id"],)).fetchall()
+    rows = cur.execute("""
+        SELECT id, title, image_url, summary, instructions, preparation_time, serving_size, source_url
+        FROM recipes
+        WHERE user_id = ?
+    """, (session["user_id"],)).fetchall()
 
     RECIPES = []
     for row in rows:
-            RECIPES.append(dict(row))
+        RECIPES.append(dict(row))
+    
+    for recipe in RECIPES:
 
+        ingredients = cur.execute("""
+            SELECT name, is_used
+            FROM ingredients
+            WHERE recipe_id = ?
+        """, (recipe["id"],)).fetchall()
+
+        recipe["usedIngredients"] = []
+        recipe["missedIngredients"] = []
+    
+        for ingredient in ingredients:
+            if ingredient["is_used"] == 1:
+                recipe["usedIngredients"].append(ingredient["name"])
+            else:
+                recipe["missedIngredients"].append(ingredient["name"])
+    
     con.commit()
     con.close()
 
@@ -226,27 +274,39 @@ def add_bookmark():
     # Use fetch to POST JSON data to Flask server
 
     # Retrieve JSON
-    data = request.get_json()
+    recipe = request.get_json()
 
     # Database connection and cursor
     con = sqlite3.connect("database.db")
     cur = con.cursor()
 
     # Handle duplicate bookmark
-    rows = cur.execute("SELECT title FROM bookmarks WHERE user_id = ?", (session["user_id"],)).fetchall()
+    rows = cur.execute("SELECT title FROM recipes WHERE user_id = ?", (session["user_id"],)).fetchall()
     for title in rows:
-        if title[0] == data["title"]:
+        if title[0] == recipe["title"]:
             con.close()
-            return "Duplicate prevented"
+            return jsonify({'message': 'Recipe already bookmarked'}) 
 
-    # Insert data inside database
-    cur.execute("INSERT INTO bookmarks(user_id, image, title, dishTypes, servings, readyInMinutes, likes, healthScore, diets, sourceUrl, usedIngredients, missedIngredients) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (session["user_id"], data["image"], data["title"], json.dumps(data["dishTypes"]), data["servings"], data["readyInMinutes"], data["likes"], data["healthScore"], json.dumps(data["diets"]), data["sourceUrl"], json.dumps(data["usedIngredients"]), json.dumps(data["missedIngredients"])))
+    # Insert current user's bookmarked recipe into database 
+    cur.execute("""
+        INSERT INTO recipes (user_id, title, image_url, summary, instructions, preparation_time, serving_size, source_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (session['user_id'], recipe['title'], recipe['image_url'], recipe['summary'], 
+          recipe['instructions'], recipe['preparation_time'], recipe['serving_size'], recipe['source_url']))
+    
+    recipe_id = cur.lastrowid
+
+    # Insert ingredients into database
+    for ingredient in recipe['ingredients']:
+        cur.execute("""
+            INSERT INTO ingredients (recipe_id, name, is_used)
+            VALUES (?, ?, ?)
+        """, (recipe_id, ingredient['name'], ingredient['is_used']))
 
     con.commit()
     con.close()
 
-    return jsonify()
+    return jsonify({'id': recipe['id'], 'message': 'Recipe bookmarked successfully'})
 
 
 @app.route("/api/bookmarks/<id>", methods=["DELETE"])
@@ -257,23 +317,12 @@ def delete_bookmark(id):
     cur = con.cursor()
 
     # Delete data inside database
-    cur.execute("DELETE FROM bookmarks WHERE id = ? AND user_id = ?", (id, session["user_id"]))
+    cur.execute("DELETE FROM recipes WHERE id = ? AND user_id = ?", (id, session["user_id"]))
 
     con.commit()
     con.close()
 
-    return jsonify()
-
-
-@app.route("/api-key")
-def get_api_key():
-
-    if "user_id" in session:
-        API_KEY = os.getenv("API_KEY")
-        return jsonify(API_KEY)
-    else:
-        return "ERROR 404"
-
+    return jsonify({'id': id, 'message': 'Recipe deleted successfully'})
 
 
 
