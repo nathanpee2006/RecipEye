@@ -69,6 +69,31 @@ _Note: The recipe data gathered for this project was all possible thanks to the 
 ### CSS
 - bootstrap.min.css - A CSS file from [Bootswatch](https://bootswatch.com/minty/) that provides free Bootstrap themes. This handles all of the styling (i.e. color) and responsiveness (i.e. scaling down when broswer window is becoming smaller) of the web page.
 
+## How to Run
+1. Clone the repository:
+    ```sh
+    git clone git@github.com:nathanpee2006/RecipEye.git
+    cd RecipEye 
+    ```
+2. Install dependencies
+    
+    ```sh
+    python -m venv env
+
+    If using Windows:
+    env\Scripts\activate OR env\Scripts\activate.bat 
+
+    If using Linux:
+    source env/bin/activate
+
+    pip install -r requirements.txt
+    ```
+3. Run the application
+    ```sh
+    cd project
+    flask run
+    ```
+4. Open your browser and visit the url provided in the terminal.
 
 
 
